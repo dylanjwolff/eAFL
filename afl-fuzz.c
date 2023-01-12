@@ -4721,6 +4721,9 @@ static u32 choose_block_len(u32 limit) {
 
 }
 
+static u32 exec_us_thresh;
+static u32 input_len_bytes_thresh;
+static u8 use_smaller_faster;
 
 /* Calculate case desirability score to adjust the length of havoc fuzzing.
    A helper function for fuzz_one(). Maybe some of these constants should
@@ -4731,6 +4734,18 @@ static u32 calculate_score(struct queue_entry* q) {
   u32 avg_exec_us = total_cal_us / total_cal_cycles;
   u32 avg_bitmap_size = total_bitmap_size / total_bitmap_entries;
   u32 perf_score = 100;
+
+  if (use_smaller_faster) {
+     if (q->exec_us > 200 && q->len > 500) {
+       perf_score = 0;
+       return perf_score;
+     }
+  } else {
+     if (q->exec_us < 200 || q->len < 500) {
+       perf_score = 0;
+       return perf_score;
+     }
+  }
 
   /* Adjust score based on execution speed of this path, compared to the
      global average. Multiplier ranges from 0.1x to 3x. Fast inputs are
@@ -7757,6 +7772,28 @@ static void save_cmdline(u32 argc, char** argv) {
 /* Main entry point */
 
 int main(int argc, char** argv) {
+
+  char* maybe_exec = getenv("EXEC_US_THRESH");
+  if (maybe_exec == NULL) {
+    exec_us_thresh = 200;
+  } else {
+    exec_us_thresh = atoi(maybe_exec);
+  }
+
+  char* maybe_size = getenv("INPUT_BYTES_THRESH");
+  if (maybe_size== NULL) {
+    input_len_bytes_thresh = 500;
+  } else {
+    input_len_bytes_thresh = atoi(maybe_size);
+  }
+
+  char* maybe_smaller_faster = getenv("USE_FASTER_SMALLER");
+  if (maybe_smaller_faster == NULL) {
+    use_smaller_faster = 0;
+  } else {
+    use_smaller_faster = atoi(maybe_smaller_faster);
+  }
+
 
   s32 opt;
   u64 prev_queued = 0;
